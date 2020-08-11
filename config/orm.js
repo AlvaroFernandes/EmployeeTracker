@@ -1,11 +1,11 @@
 const connection = require("./connection.js");
 
 const orm = {
-    selectTable: (tableInput) => {
+    selectAll: (table, cb) => {
             const queryString = "SELECT * FROM ?? ";
-            connection.query(queryString, [tableInput], (err, result) => {
+            connection.query(queryString, [table], (err, result) => {
                 if (err) throw err;
-                console.log(result);
+                cb(result);
             });
         }
         // selectAndOrder: (whatToSelect, table, orderCol) => {
