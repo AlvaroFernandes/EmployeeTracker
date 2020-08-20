@@ -5,6 +5,7 @@ const quest = require("./utils/questions.js");
 const logo = require('asciiart-logo');
 const Prompt = require("inquirer/lib/prompts/base");
 const util = require("util");
+const { finished } = require("stream");
 
 connection.query = util.promisify(connection.query);
 
@@ -54,7 +55,7 @@ const start = () => {
             case "addRole":
                 addRole();
                 break;
-            case "deleteDepartament":
+            case "deleteDepartment":
                 delDep();
                 break;
             case "deleteRole":
@@ -63,11 +64,24 @@ const start = () => {
             case "deleteEmployee":
                 delEmp();
                 break;
+            case "quit":
+                finish();
+                break;
         }
     })
 };
 
 start();
+
+async function getEmployee() {
+    const employeeSQL = ("SELECT id, CONCAT(first_name,' ', last_name) AS name FROM employee;");
+    const employeeQuery = await connection.query(employeeSQL);
+    let result = employeeQuery.map(obj => {
+        let employeeObj = { name: obj.name, value: obj.id };
+        return employeeObj;
+    });
+    return result;
+};
 
 async function getRoles() {
     const roleSql = ("SELECT id, title as role FROM role;");
@@ -85,18 +99,19 @@ async function getManagers() {
     let result = managerQuery.map(obj => {
         let managerObj = { name: obj.name, value: obj.id };
         return managerObj;
-    })
+    });
     return result;
-}
+};
+
 async function getDepartments() {
     const departmentSql = ("SELECT id, name FROM department");
     const departmentQuery = await connection.query(departmentSql);
     let result = departmentQuery.map(obj => {
         let departmentObj = { name: obj.name, value: obj.id };
         return departmentObj
-    })
+    });
     return result;
-}
+};
 
 
 // VIEW FUNCTIONS
@@ -132,12 +147,59 @@ const viewAllRoles = () => {
 
 //Update
 const updateEmployeeRole = async() => {
+    const empList = await getEmployee();
+    const roleList = await getRoles();
 
+    prompt([{
+            type: "list",
+            name: "employee",
+            message: "Employee to change role:",
+            choices: empList
+        },
+        {
+            type: "list",
+            name: "role",
+            message: "New role of employee:",
+            choices: roleList
+        }
+    ]).then(result => {
+        const updateSql = ("UPDATE employee SET role_id = ? WHERE id = ?;");
+        connection.query(updateSql, [result.role, result.employee], (err, res) => {
+            if (err) throw err;
+            console.log(" ");
+            console.log("Employee's role updated!");
+            start();
+        })
+
+    })
 }
 
 const updateEmployeeManager = async() => {
+    const empList = await getEmployee();
+    const manList = await getManagers();
 
-}
+    prompt([{
+            type: "list",
+            name: "employee",
+            message: "Employee to change role:",
+            choices: empList
+        },
+        {
+            type: "list",
+            name: "manager",
+            message: "New manager of employee:",
+            choices: manList
+        }
+    ]).then(result => {
+        const updateSql = ("UPDATE employee SET manager_id = ? WHERE id = ?;");
+        connection.query(updateSql, [result.manager, result.employee], (err, res) => {
+            if (err) throw err;
+            console.log(" ");
+            console.log("Employee's manager updated!");
+            start();
+        })
+    })
+};
 
 
 //add
@@ -230,14 +292,65 @@ const addRole = async() => {
 
 //del
 
-const delEmp = () => {
+const delEmp = async() => {
+    const empList = await getEmployee();
 
+    prompt([{
+        type: "list",
+        name: "employee",
+        message: "Employee to delete:",
+        choices: empList
+    }]).then(result => {
+        const delSql = ("DELETE FROM employee WHERE id = ?;");
+        connection.query(delSql, [result.employee], (err, res) => {
+            if (err) throw err;
+        });
+        console.log('');
+        console.log("Employee deleted!");
+        start();
+    });
+};
+
+const delDep = async() => {
+    console.log("delDep")
+    const depList = await getDepartments();
+
+    prompt([{
+        type: "list",
+        name: "department",
+        message: "Department to delete:",
+        choices: depList
+    }]).then(result => {
+        const delSql = ("DELETE FROM department WHERE id = ?;");
+        connection.query(delSql, [result.department], (err, res) => {
+            if (err) throw err;
+        });
+        console.log('');
+        console.log("Department deleted!");
+        start();
+    });
 }
 
-const delDep = () => {
+const delRole = async() => {
+    const roleList = await getRoles();
 
+    prompt([{
+        type: "list",
+        name: "role",
+        message: "Role to delete:",
+        choices: roleList
+    }]).then(result => {
+        const delSql = ("DELETE FROM role WHERE id = ?;");
+        connection.query(delSql, [result.role], (err, res) => {
+            if (err) throw err;
+        });
+        console.log('');
+        console.log("Employee deleted!");
+        start();
+    });
 }
 
-const delRole = () => {
-
-}
+//end connection
+const finish = () => {
+    connection.end();
+};
