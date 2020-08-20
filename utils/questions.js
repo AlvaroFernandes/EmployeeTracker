@@ -1,5 +1,6 @@
 const Questions = [{
     type: "list",
+    pageSize: 11,
     name: "start",
     message: "What would you like to do?",
     choices: [
@@ -13,8 +14,7 @@ const Questions = [{
         { name: "add a role", value: "addRole" },
         { name: "delete a department", value: "deleteDepartment" },
         { name: "delete a role", value: "deleteRole" },
-        { name: "delete an employee", value: "deleteEmployee" },
-    ],
-}, ];
-
-module.exports = { Questions };
+        { name: "delete an employee", value: "deleteEmployee" }
+    ]
+}, ]
+module.exports = { Questions }

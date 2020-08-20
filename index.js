@@ -3,8 +3,10 @@ const { prompt } = require("inquirer");
 const table = require("console.table");
 const quest = require("./utils/questions.js");
 const logo = require('asciiart-logo');
+const Prompt = require("inquirer/lib/prompts/base");
+const util = require("util");
 
-
+connection.query = util.promisify(connection.query);
 
 const start = () => {
 
@@ -27,45 +29,39 @@ const start = () => {
 
     prompt(quest.Questions).then(async(answers) => {
         const answer = answers.start;
-        console.log(answer);
         switch (answer) {
             case "allEmployees":
                 viewAllEmployees();
                 break;
             case "allDepartments":
-                viewAll;
-
-                start();
+                viewAllDep();
                 break;
             case "allRoles":
-                selectAll("roles");
-                start();
+                viewAllRoles();
                 break;
             case "uEmployeeRole":
-
                 updateEmployeeRole();
-                // start();
                 break;
             case "uEmployeeManager":
                 updateEmployeeManager();
                 break;
             case "addEmployee":
-
+                addEmp();
                 break;
             case "addDepartment":
-
+                addDep();
                 break;
             case "addRole":
-
+                addRole();
                 break;
             case "deleteDepartament":
-
+                delDep();
                 break;
             case "deleteRole":
-
+                delRole();
                 break;
             case "deleteEmployee":
-
+                delEmp();
                 break;
         }
     })
@@ -73,59 +69,40 @@ const start = () => {
 
 start();
 
-// GET FUNCTIONS
-const AllDepartment = () => {
-    const query = ("SELECT name FROM department");
-    return connection.query(query);
-};
-
-const AllDepartments = async() => {
-    const query = (`SELECT id, name FROM department`);
-    const result = await connection.query(query);
-    const Departament = result.map(obj => {
-        const depID = { name: obj.name, value: obj.id };
-        return depID
+async function getRoles() {
+    const roleSql = ("SELECT id, title as role FROM role;");
+    const roleQuery = await connection.query(roleSql);
+    let result = roleQuery.map(obj => {
+        let roleObj = { name: obj.role, value: obj.id };
+        return roleObj
     })
-    return Departament;
+    return result;
 };
 
-const AllManagers = async() => {
-    const query = ("SELECT CONCAT(first_name,' ', last_name) AS name FROM (SELECT distinct manager_id FROM employee WHERE manager_id  IS NOT NULL) AS managers JOIN employee ON (employee.id = managers.manager_id);")
-    return connection.query(query);
-};
-
-const AllManagersID = async() => {
-    const query = ("SELECT id,CONCAT(first_name,' ', last_name) AS name FROM (SELECT distinct manager_id FROM employee WHERE manager_id  IS NOT NULL) AS managers JOIN employee ON (employee.id = managers.manager_id);")
-    const result = await connection.query(query);
-    const manager = query.map(obj => {
-        const managerID = { name: obj.name, value: obj.id };
-        return managerID
+async function getManagers() {
+    const managerSql = ("SELECT id, CONCAT(first_name,' ', last_name) AS name FROM (SELECT distinct manager_id FROM employee WHERE manager_id  IS NOT NULL) AS managers JOIN employee ON (employee.id = managers.manager_id);");
+    const managerQuery = await connection.query(managerSql);
+    let result = managerQuery.map(obj => {
+        let managerObj = { name: obj.name, value: obj.id };
+        return managerObj;
     })
-    return manager;
-};
+    return result;
+}
+async function getDepartments() {
+    const departmentSql = ("SELECT id, name FROM department");
+    const departmentQuery = await connection.query(departmentSql);
+    let result = departmentQuery.map(obj => {
+        let departmentObj = { name: obj.name, value: obj.id };
+        return departmentObj
+    })
+    return result;
+}
 
-const AllRoles = async() => {
-    return connection.query("SELECT title AS name FROM role")
-};
-
-const AllRolesID = async() => {
-    const query = ("SELECT id, title AS name FROM role");
-    const result = await connection.query(query);
-    const roles = query.map(obj => {
-        const rolesID = { name: obj.name, value: obj.id };
-        return rolesID
-    });
-    return roles;
-};
-
-const AllEmployees = async() => {
-    return connection.query("SELECT CONCAT (first_name,' ', last_name) AS name FROM employee");
-};
 
 // VIEW FUNCTIONS
 const viewAllEmployees = () => {
     const sqlQuery = ("SELECT employee.id, CONCAT (employee.first_name,' ', employee.last_name) AS 'Employee Name', role.title AS 'Role Title', name AS Department, role.salary AS Salary, CONCAT (managers.first_name,' ', managers.last_name) AS 'Manager Name' FROM employee INNER JOIN role ON (employee.role_id = role.id) INNER JOIN department ON (department.id = role.department_id) LEFT JOIN employee AS managers ON (employee.manager_id = managers.id)")
-    connection.query(sqlQuery, function(err, res) {
+    connection.query(sqlQuery, (err, res) => {
         if (err) throw err;
         console.log("");
         console.table(res);
@@ -134,340 +111,133 @@ const viewAllEmployees = () => {
 };
 
 const viewAllDep = () => {
-    const sqlQuery = ("SELECT department_id")
-
-};
-
-const viewAllEmployeesByManager = () => {
-
-    getAllManagers().then((managers) => {
-        inquirer
-            .prompt([{
-                type: "list",
-                message: "Which manager team would you like to see?",
-                name: "manager",
-                choices: managers
-            }])
-            .then(answer => {
-                let fullName = answer.manager.split(" ");
-                let firstName = fullName[0];
-                let lastName = fullName[1];
-                const query = `
-          SELECT 
-            employee.id, 
-            CONCAT (employee.first_name,' ', employee.last_name) AS 'Employee Name', 
-            role.title AS 'Role Title', 
-            name AS Department, 
-            role.salary AS Salary, 
-            CONCAT (managers.first_name,' ', managers.last_name) AS 'Manager Name'
-          FROM employee 
-          INNER JOIN role ON (employee.role_id = role.id) 
-          INNER JOIN department ON (department.id = role.department_id)
-          LEFT JOIN employee AS managers ON (employee.manager_id = managers.id)
-          WHERE managers.first_name = ? AND managers.last_name = ?;`;
-                connection.query(query, [firstName, lastName], function(err, res) {
-                    if (err) throw err;
-                    console.log("");
-                    console.table(res);
-                    init();
-                });
-            });
-    });
-};
-
-const viewAllRoles = () => {
-    connection.query(`
-        SELECT 
-          role.id, 
-          role.title AS 'Role Title',  
-          role.salary AS Salary, 
-          name AS Department
-        FROM role 
-        INNER JOIN department ON (role.department_id = department.id)
-      `, function(err, res) {
+    const sqlQuery = ("SELECT * FROM department");
+    connection.query(sqlQuery, (err, res) => {
         if (err) throw err;
         console.log("");
         console.table(res);
-        init();
-    });
+        start();
+    })
 };
 
-const viewTotalDepartmentBudget = () => {
-
-    getAllDepartments().then((departments) => {
-        inquirer
-            .prompt([{
-                type: "list",
-                message: "From which department would you like to see the total budget?",
-                name: "department",
-                choices: departments
-            }])
-            .then(answer => {
-                const query = `
-        SELECT 
-          name AS Department,
-          SUM(role.salary) AS 'Total Budget'
-        FROM employee 
-        INNER JOIN role ON (employee.role_id = role.id) 
-        INNER JOIN department ON (department.id = role.department_id)
-        LEFT JOIN employee AS managers ON (employee.manager_id = managers.id)
-        WHERE department.name = ?;`;
-                connection.query(query, answer.department, function(err, res) {
-                    if (err) throw err;
-                    console.log("");
-                    console.table(res);
-                    init();
-                });
-            });
-    });
+const viewAllRoles = () => {
+    const sqlQuery = ("SELECT role.id, role.title AS 'Role Title', role.salary AS Salary, name AS Department FROM role INNER JOIN department ON (role.department_id = department.id);");
+    connection.query(sqlQuery, (err, res) => {
+        if (err) throw err;
+        console.log("");
+        console.table(res);
+        start();
+    })
 };
 
-// ADD FUNCTIONS
-
-const addEmployee = async() => {
-    let roles = await getAllRolesID();
-    let manager = await getAllManagersID();
-    inquirer
-        .prompt([{
-                name: "firstName",
-                type: "input",
-                message: "What is the employee first name?"
-            },
-            {
-                name: "lastName",
-                type: "input",
-                message: "What is the employee last name?"
-            },
-            {
-                type: "list",
-                message: "What is the role title?",
-                name: "role",
-                choices: roles
-            },
-            {
-                name: "manager",
-                type: "list",
-                message: "What is the manager name?",
-                choices: manager
-            }
-        ])
-        .then(answer => {
-            const query = `
-          INSERT INTO employee (first_name, last_name, role_id, manager_id)
-          VALUES (?, ?, ?, ?);
-            `;
-            connection.query(query, [answer.firstName, answer.lastName, answer.role, answer.manager], function(err, res) {
-                if (err) throw err;
-                console.log("");
-                console.log(` ${answer.firstName} ${answer.lastName} added to the Database.`);
-                init();
-            });
-        });
-
-};
-
-const addRole = async() => {
-    let departments = await getAllDepartmentsID();
-    inquirer
-        .prompt([{
-                name: "title",
-                type: "input",
-                message: "What is the role title?"
-            },
-            {
-                name: "salary",
-                type: "input",
-                message: "What is the role salary?"
-            },
-            {
-                name: "department",
-                type: "list",
-                message: "What is the role department?",
-                choices: departments
-            }
-        ])
-        .then(answer => {
-            const query = `
-          INSERT INTO role (title, salary, department_id)
-          VALUES (?, ?, ?);
-            `;
-            connection.query(query, [answer.title, answer.salary, answer.department], function(err, res) {
-                if (err) throw err;
-                console.log("");
-                console.log(answer.title + " added to the Database.");
-                init();
-            });
-        });
-};
-
-const addDepartment = () => {
-    inquirer
-        .prompt([{
-            name: "name",
-            type: "input",
-            message: "What is the department name?"
-        }])
-        .then(answer => {
-            const query = `
-          INSERT INTO department (name)
-          VALUES (?);
-            `;
-            connection.query(query, [answer.name], function(err, res) {
-                if (err) throw err;
-                console.log("");
-                console.log(answer.name + " added to the Database.");
-                init();
-            });
-        });
-};
-
-// REMOVE FUNCTIONS
-
-const removeEmployee = async() => {
-    let employees = await getAllEmployees();
-
-    inquirer
-        .prompt([{
-            name: "employee",
-            type: "list",
-            message: "Which employee would you like to remove?",
-            choices: employees
-        }])
-        .then(answer => {
-            let fullName = answer.employee.split(" ");
-            let firstName = fullName[0];
-            let lastName = fullName[1];
-            const query = `
-        DELETE FROM employee
-        WHERE first_name = ? AND last_name = ?;
-          `;
-            connection.query(query, [firstName, lastName], function(err, res) {
-                if (err) throw err;
-                console.log("");
-                console.log(answer.employee + " removed from the Database.");
-                init();
-            });
-        });
-};
-
-const removeRole = async() => {
-    let roles = await getAllRoles();
-
-    inquirer
-        .prompt([{
-            name: "role",
-            type: "list",
-            message: "Which role would you like to remove?",
-            choices: roles
-        }])
-        .then(answer => {
-            const query = `
-        DELETE FROM role
-        WHERE title = ?;
-          `;
-            connection.query(query, answer.role, function(err, res) {
-                if (err) throw err;
-                console.log("");
-                console.log(answer.role + " removed from the Database.");
-                init();
-            });
-        });
-};
-
-const removeDepartment = async() => {
-    let departments = await getAllDepartments();
-
-    inquirer
-        .prompt([{
-            name: "department",
-            type: "list",
-            message: "Which department would you like to remove?",
-            choices: departments
-        }])
-        .then(answer => {
-            const query = `
-        DELETE FROM department
-        WHERE name = ?;
-          `;
-            connection.query(query, answer.department, function(err, res) {
-                if (err) throw err;
-                console.log("");
-                console.log(answer.department + " removed from the Database.");
-                init();
-            });
-        });
-};
-
-// UPDATE FUNCTIONS
-
+//Update
 const updateEmployeeRole = async() => {
-    let employees = await getAllEmployees();
-    let roles = await getAllRolesID();
 
-    inquirer
-        .prompt([{
-                name: "employee",
-                type: "list",
-                message: "Which employee would you like to change role?",
-                choices: employees
-            },
-            {
-                name: "role",
-                type: "list",
-                message: "Which is the employee new role?",
-                choices: roles
-            },
-        ])
-        .then(answer => {
-            let fullName = answer.employee.split(" ");
-            let firstName = fullName[0];
-            let lastName = fullName[1];
-            const query = `
-          UPDATE employee
-          SET role_id = ?
-          WHERE first_name = ? AND last_name = ?;
-          `;
-            connection.query(query, [answer.role, firstName, lastName], function(err, res) {
-                if (err) throw err;
-                console.log("");
-                console.log(` ${firstName} ${lastName} role updated in the Database.`);
-                init();
-            });
-        });
-};
+}
 
 const updateEmployeeManager = async() => {
-    let employees = await getAllEmployees();
-    let managers = await getAllManagersID();
 
-    inquirer
-        .prompt([{
-                name: "employee",
-                type: "list",
-                message: "Which employee would you like to change manager?",
-                choices: employees
-            },
-            {
-                name: "manager",
-                type: "list",
-                message: "Which is the employee new role?",
-                choices: managers
-            },
-        ])
-        .then(answer => {
-            let fullName = answer.employee.split(" ");
-            let firstName = fullName[0];
-            let lastName = fullName[1];
-            const query = `
-          UPDATE employee
-          SET manager_id = ?
-          WHERE first_name = ? AND last_name = ?;
-          `;
-            connection.query(query, [answer.manager, firstName, lastName], function(err, res) {
-                if (err) throw err;
-                console.log("");
-                console.log(` ${firstName} ${lastName} manager updated in the Database.`);
-                init();
-            });
+}
+
+
+//add
+const addEmp = async() => {
+    const role = await getRoles();
+    const man = await getManagers();
+
+    prompt([{
+            type: "input",
+            name: "firstName",
+            message: "First name of the new employee:"
+        },
+        {
+            type: "input",
+            name: "lastName",
+            message: "Last name of the new employee:"
+        },
+        {
+            type: "list",
+            name: "roles",
+            message: "Select a role:",
+            choices: role
+        },
+        {
+            type: "list",
+            name: "manager",
+            message: "Select a manager",
+            choices: man
+        }
+    ]).then(result => {
+        const addSql = ("INSERT INTO employee (first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?);");
+        connection.query(addSql, [result.firstName, result.lastName, result.roles, result.manager], (err, res) => {
+            if (err) throw err;
+            console.log('');
+            console.log("Employee addes!");
+            start();
+        })
+    });
+
+}
+
+const addDep = async() => {
+    await prompt([{
+        type: "input",
+        name: "department",
+        message: "Name of the new department:",
+    }, ]).then(result => {
+        const addSql = "INSERT INTO department (name) VALUES (?);";
+        connection.query(addSql, [result.department], (err, res) => {
+            if (err) throw err;
         });
-};
+        console.log('');
+        console.log("New department added!");
+        start();
+    });
+
+}
+
+
+const addRole = async() => {
+    const dep = await getDepartments();
+
+    prompt([{
+            type: "input",
+            name: "title",
+            message: "Role title?"
+        },
+        {
+            type: "input",
+            name: "salary",
+            message: "Role salary?"
+        },
+        {
+            type: "list",
+            name: "department",
+            message: "Role department?",
+            choices: dep
+        }
+    ]).then(result => {
+        const addSql = ("INSERT INTO role (title,salary,department_id) VALUES (?,?,?);");
+        connection.query(addSql, [result.title, result.salary, result.department], (err, res) => {
+            if (err) throw err;
+        });
+        console.log('');
+        console.log("New department added!");
+        start();
+    });
+
+}
+
+//del
+
+const delEmp = () => {
+
+}
+
+const delDep = () => {
+
+}
+
+const delRole = () => {
+
+}
